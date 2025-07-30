@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Home - AniWorld Downloader Web{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="text-center mb-5">
+            <h1 class="display-4 text-primary">
+                <i class="fas fa-download"></i>
+                AniWorld Downloader Web
+            </h1>
+            <p class="lead">Batch download entire anime series with ease</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card h-100 card-hover">
+                    <div class="card-body text-center">
+                        <i class="fas fa-search fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Search Anime</h5>
+                        <p class="card-text">Find and explore anime series available for download</p>
+                        <a href="/search" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Start Searching
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100 card-hover">
+                    <div class="card-body text-center">
+                        <i class="fas fa-list fa-3x text-success mb-3"></i>
+                        <h5 class="card-title">Manage Downloads</h5>
+                        <p class="card-text">Monitor and manage your download queue and progress</p>
+                        <a href="/downloads" class="btn btn-success">
+                            <i class="fas fa-list"></i> View Downloads
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-5">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Features</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Batch download entire anime series</li>
+                            <li><i class="fas fa-check text-success"></i> Multiple language support</li>
+                            <li><i class="fas fa-check text-success"></i> Various streaming providers</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Real-time download progress</li>
+                            <li><i class="fas fa-check text-success"></i> Download queue management</li>
+                            <li><i class="fas fa-check text-success"></i> Easy-to-use web interface</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-4">
+            <h6><i class="fas fa-lightbulb"></i> Quick Start:</h6>
+            <ol class="mb-0">
+                <li>Use the <strong>Search</strong> page to find anime series</li>
+                <li>Select episodes or entire seasons for batch download</li>
+                <li>Monitor progress in the <strong>Downloads</strong> section</li>
+                <li>Downloaded files will be saved to the configured output directory</li>
+            </ol>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -31,6 +31,8 @@ dependencies = [
     'fake_useragent',
     'packaging',
     'jsbeautifier',
+    'flask',
+    'flask-socketio',
     'py-cpuinfo; platform_system == "Windows"',
     'windows-curses; platform_system == "Windows"'
 ]

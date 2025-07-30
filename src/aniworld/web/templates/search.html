@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Search - AniWorld Downloader Web{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <h2><i class="fas fa-search"></i> Search Anime</h2>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <input type="text" id="searchInput" class="form-control form-control-lg" 
+                                   placeholder="Enter anime name (e.g., Demon Slayer, Attack on Titan...)" 
+                                   autocomplete="off">
+                            <button class="btn btn-primary" type="button" id="searchBtn">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-lg" id="languageSelect">
+                            <option value="German Dub">German Dub</option>
+                            <option value="English Sub">English Sub</option>
+                            <option value="German Sub">German Sub</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading spinner -->
+        <div id="loadingSpinner" class="text-center mt-4" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Searching...</span>
+            </div>
+            <div class="mt-2">Searching for anime...</div>
+        </div>
+
+        <!-- Search results -->
+        <div id="searchResults" class="mt-4" style="display: none;">
+            <h4>Search Results</h4>
+            <div id="resultsContainer">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+
+        <!-- Anime details -->
+        <div id="animeDetails" class="mt-4" style="display: none;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" id="animeTitle">Anime Title</h5>
+                    <button class="btn btn-secondary btn-sm" id="backToResults">
+                        <i class="fas fa-arrow-left"></i> Back to Results
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="batch-actions">
+                        <h6><i class="fas fa-tasks"></i> Batch Actions</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-primary btn-sm me-2" id="selectAllBtn">
+                                    <i class="fas fa-check-square"></i> Select All
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm me-2" id="selectNoneBtn">
+                                    <i class="fas fa-square"></i> Select None
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" id="selectSeasonBtn">
+                                    <i class="fas fa-layer-group"></i> Select Current Season
+                                </button>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button class="btn btn-success" id="downloadSelectedBtn" disabled>
+                                    <i class="fas fa-download"></i> Download Selected (<span id="selectedCount">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="episodesList">
+                        <!-- Episodes will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const searchResults = document.getElementById('searchResults');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const animeDetails = document.getElementById('animeDetails');
+    const animeTitle = document.getElementById('animeTitle');
+    const backToResults = document.getElementById('backToResults');
+    const episodesList = document.getElementById('episodesList');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const selectSeasonBtn = document.getElementById('selectSeasonBtn');
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    const selectedCount = document.getElementById('selectedCount');
+    const languageSelect = document.getElementById('languageSelect');
+
+    let currentAnime = null;
+
+    // Search functionality
+    function performSearch() {
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        loadingSpinner.style.display = 'block';
+        searchResults.style.display = 'none';
+        animeDetails.style.display = 'none';
+
+        fetch(`/api/search?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                loadingSpinner.style.display = 'none';
+                if (data.error) {
+                    alert('Search error: ' + data.error);
+                    return;
+                }
+                displaySearchResults(data.results);
+            })
+            .catch(error => {
+                loadingSpinner.style.display = 'none';
+                alert('Search failed: ' + error.message);
+            });
+    }
+
+    function displaySearchResults(results) {
+        resultsContainer.innerHTML = '';
+        if (!results || results.length === 0) {
+            resultsContainer.innerHTML = '<div class="alert alert-warning">No results found.</div>';
+        } else {
+            results.forEach(result => {
+                const resultCard = document.createElement('div');
+                resultCard.className = 'card mb-2 search-result';
+                resultCard.innerHTML = `
+                    <div class="card-body">
+                        <h6 class="card-title">${result.title || result.slug}</h6>
+                        <p class="card-text text-muted">${result.slug}</p>
+                    </div>
+                `;
+                resultCard.addEventListener('click', () => loadAnimeDetails(result.slug, result.title || result.slug));
+                resultsContainer.appendChild(resultCard);
+            });
+        }
+        searchResults.style.display = 'block';
+    }
+
+    function loadAnimeDetails(slug, title) {
+        animeTitle.textContent = title;
+        currentAnime = { slug, title };
+        
+        // For demo purposes, create some sample episodes
+        // In real implementation, this would fetch from the API
+        displayEpisodes(generateSampleEpisodes(slug));
+        
+        searchResults.style.display = 'none';
+        animeDetails.style.display = 'block';
+    }
+
+    function generateSampleEpisodes(slug) {
+        // This is a placeholder - in real implementation, 
+        // this would fetch actual episode data from the API
+        const episodes = [];
+        for (let season = 1; season <= 2; season++) {
+            for (let ep = 1; ep <= 12; ep++) {
+                episodes.push({
+                    season: season,
+                    episode: ep,
+                    title: `Episode ${ep}`,
+                    url: `https://aniworld.to/anime/stream/${slug}/staffel-${season}/episode-${ep}`
+                });
+            }
+        }
+        return episodes;
+    }
+
+    function displayEpisodes(episodes) {
+        episodesList.innerHTML = '';
+        let currentSeason = null;
+        
+        episodes.forEach(ep => {
+            if (ep.season !== currentSeason) {
+                currentSeason = ep.season;
+                const seasonHeader = document.createElement('h6');
+                seasonHeader.className = 'mt-3 mb-2 text-primary';
+                seasonHeader.innerHTML = `<i class="fas fa-layer-group"></i> Season ${ep.season}`;
+                episodesList.appendChild(seasonHeader);
+            }
+            
+            const episodeDiv = document.createElement('div');
+            episodeDiv.className = 'form-check mb-2';
+            episodeDiv.innerHTML = `
+                <input class="form-check-input episode-checkbox" type="checkbox" 
+                       value="${ep.url}" id="ep_s${ep.season}_e${ep.episode}"
+                       data-season="${ep.season}" data-episode="${ep.episode}">
+                <label class="form-check-label" for="ep_s${ep.season}_e${ep.episode}">
+                    <strong>S${ep.season}E${ep.episode.toString().padStart(2, '0')}</strong> - ${ep.title}
+                </label>
+            `;
+            episodesList.appendChild(episodeDiv);
+        });
+        
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.episode-checkbox');
+        const checkedBoxes = document.querySelectorAll('.episode-checkbox:checked');
+        selectedCount.textContent = checkedBoxes.length;
+        downloadSelectedBtn.disabled = checkedBoxes.length === 0;
+    }
+
+    // Event listeners
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') performSearch();
+    });
+
+    backToResults.addEventListener('click', function() {
+        animeDetails.style.display = 'none';
+        searchResults.style.display = 'block';
+    });
+
+    selectAllBtn.addEventListener('click', function() {
+        document.querySelectorAll('.episode-checkbox').forEach(cb => cb.checked = true);
+        updateSelectedCount();
+    });
+
+    selectNoneBtn.addEventListener('click', function() {
+        document.querySelectorAll('.episode-checkbox').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    });
+
+    selectSeasonBtn.addEventListener('click', function() {
+        // This would need to be implemented to select current season
+        alert('Select Current Season feature - to be implemented');
+    });
+
+    downloadSelectedBtn.addEventListener('click', function() {
+        const selectedEpisodes = Array.from(document.querySelectorAll('.episode-checkbox:checked'))
+            .map(cb => cb.value);
+        
+        if (selectedEpisodes.length === 0) return;
+
+        const downloadData = {
+            anime: currentAnime.title,
+            episodes: selectedEpisodes,
+            language: languageSelect.value,
+            provider: 'auto'
+        };
+
+        fetch('/api/download', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(downloadData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Added ${selectedEpisodes.length} episodes to download queue!`);
+                window.location.href = '/downloads';
+            } else {
+                alert('Download failed: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Download failed: ' + error.message);
+        });
+    });
+
+    // Listen for checkbox changes
+    episodesList.addEventListener('change', function(e) {
+        if (e.target.classList.contains('episode-checkbox')) {
+            updateSelectedCount();
+        }
+    });
+});
+</script>
+{% endblock %}
