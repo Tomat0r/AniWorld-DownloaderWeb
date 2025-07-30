@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}Downloads - AniWorld Downloader Web{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-list"></i> Download Manager</h2>
+            <div>
+                <button class="btn btn-outline-secondary" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button class="btn btn-outline-danger" id="clearCompletedBtn">
+                    <i class="fas fa-trash"></i> Clear Completed
+                </button>
+            </div>
+        </div>
+
+        <!-- Download Queue -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock text-warning"></i> 
+                    Queue (<span id="queueCount">0</span>)
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="queueList">
+                    <div class="text-muted text-center py-3">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <div class="mt-2">No downloads in queue</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Downloads -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-download text-primary"></i> 
+                    Active Downloads (<span id="activeCount">0</span>)
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="activeList">
+                    <div class="text-muted text-center py-3">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <div class="mt-2">No active downloads</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Completed Downloads -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-check-circle text-success"></i> 
+                    Completed (<span id="completedCount">0</span>)
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="completedList">
+                    <div class="text-muted text-center py-3">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <div class="mt-2">No completed downloads</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Failed Downloads -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle text-danger"></i> 
+                    Failed (<span id="failedCount">0</span>)
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="failedList">
+                    <div class="text-muted text-center py-3">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <div class="mt-2">No failed downloads</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const socket = io();
+    
+    const queueCount = document.getElementById('queueCount');
+    const activeCount = document.getElementById('activeCount');
+    const completedCount = document.getElementById('completedCount');
+    const failedCount = document.getElementById('failedCount');
+    
+    const queueList = document.getElementById('queueList');
+    const activeList = document.getElementById('activeList');
+    const completedList = document.getElementById('completedList');
+    const failedList = document.getElementById('failedList');
+    
+    const refreshBtn = document.getElementById('refreshBtn');
+    const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+
+    function createDownloadItem(download, showActions = false) {
+        const progressBarClass = download.status === 'completed' ? 'bg-success' : 
+                                download.status === 'failed' ? 'bg-danger' : 'bg-primary';
+        
+        const statusBadge = {
+            'queued': '<span class="badge bg-warning">Queued</span>',
+            'downloading': '<span class="badge bg-primary">Downloading</span>',
+            'completed': '<span class="badge bg-success">Completed</span>',
+            'failed': '<span class="badge bg-danger">Failed</span>'
+        }[download.status] || '<span class="badge bg-secondary">Unknown</span>';
+
+        return `
+            <div class="download-item border rounded p-3 mb-3">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h6 class="mb-1">${download.anime}</h6>
+                        <div class="text-muted small">
+                            ${download.episodes ? download.episodes.length : 0} episodes • 
+                            ${download.language || 'Unknown language'}
+                        </div>
+                        ${download.error ? `<div class="text-danger small mt-1"><i class="fas fa-exclamation-triangle"></i> ${download.error}</div>` : ''}
+                    </div>
+                    <div class="col-md-3">
+                        <div class="progress download-progress">
+                            <div class="progress-bar ${progressBarClass}" role="progressbar" 
+                                 style="width: ${download.progress || 0}%" 
+                                 aria-valuenow="${download.progress || 0}" aria-valuemin="0" aria-valuemax="100">
+                                ${download.progress || 0}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        ${statusBadge}
+                    </div>
+                    <div class="col-md-1 text-end">
+                        ${showActions ? `
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary start-download" data-id="${download.id}">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger remove-download" data-id="${download.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function updateDownloadDisplay(status) {
+        // Update counts
+        queueCount.textContent = status.queue.length;
+        activeCount.textContent = status.current.length;
+        completedCount.textContent = status.completed.length;
+        failedCount.textContent = status.failed.length;
+
+        // Update queue
+        if (status.queue.length === 0) {
+            queueList.innerHTML = `
+                <div class="text-muted text-center py-3">
+                    <i class="fas fa-inbox fa-2x"></i>
+                    <div class="mt-2">No downloads in queue</div>
+                </div>
+            `;
+        } else {
+            queueList.innerHTML = status.queue.map(d => createDownloadItem(d, true)).join('');
+        }
+
+        // Update active downloads
+        if (status.current.length === 0) {
+            activeList.innerHTML = `
+                <div class="text-muted text-center py-3">
+                    <i class="fas fa-inbox fa-2x"></i>
+                    <div class="mt-2">No active downloads</div>
+                </div>
+            `;
+        } else {
+            activeList.innerHTML = status.current.map(d => createDownloadItem(d)).join('');
+        }
+
+        // Update completed
+        if (status.completed.length === 0) {
+            completedList.innerHTML = `
+                <div class="text-muted text-center py-3">
+                    <i class="fas fa-inbox fa-2x"></i>
+                    <div class="mt-2">No completed downloads</div>
+                </div>
+            `;
+        } else {
+            completedList.innerHTML = status.completed.map(d => createDownloadItem(d)).join('');
+        }
+
+        // Update failed
+        if (status.failed.length === 0) {
+            failedList.innerHTML = `
+                <div class="text-muted text-center py-3">
+                    <i class="fas fa-inbox fa-2x"></i>
+                    <div class="mt-2">No failed downloads</div>
+                </div>
+            `;
+        } else {
+            failedList.innerHTML = status.failed.map(d => createDownloadItem(d)).join('');
+        }
+    }
+
+    function loadDownloads() {
+        fetch('/api/downloads')
+            .then(response => response.json())
+            .then(data => {
+                updateDownloadDisplay(data);
+            })
+            .catch(error => {
+                console.error('Error loading downloads:', error);
+            });
+    }
+
+    function startDownload(downloadId) {
+        fetch(`/api/downloads/${downloadId}/start`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                alert('Failed to start download: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error starting download: ' + error.message);
+        });
+    }
+
+    // Socket event listeners
+    socket.on('status', function(data) {
+        updateDownloadDisplay(data);
+    });
+
+    socket.on('download_added', function(data) {
+        loadDownloads();
+    });
+
+    socket.on('download_started', function(data) {
+        loadDownloads();
+    });
+
+    // Button event listeners
+    refreshBtn.addEventListener('click', loadDownloads);
+
+    clearCompletedBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear all completed downloads?')) {
+            // This would need to be implemented in the backend
+            alert('Clear completed downloads - feature to be implemented');
+        }
+    });
+
+    // Delegate event listeners for dynamic buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.start-download')) {
+            const downloadId = e.target.closest('.start-download').dataset.id;
+            startDownload(downloadId);
+        }
+        
+        if (e.target.closest('.remove-download')) {
+            const downloadId = e.target.closest('.remove-download').dataset.id;
+            if (confirm('Are you sure you want to remove this download?')) {
+                // This would need to be implemented in the backend
+                alert('Remove download - feature to be implemented');
+            }
+        }
+    });
+
+    // Initial load
+    loadDownloads();
+
+    // Auto-refresh every 2 seconds for active downloads
+    setInterval(function() {
+        const activeDownloads = document.querySelectorAll('#activeList .download-item');
+        if (activeDownloads.length > 0) {
+            loadDownloads();
+        }
+    }, 2000);
+});
+</script>
+{% endblock %}

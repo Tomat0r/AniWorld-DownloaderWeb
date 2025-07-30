@@ -126,6 +126,9 @@ def _add_general_arguments(parser: argparse.ArgumentParser) -> None:
     general_opts.add_argument(
         "-v", "--version", action="store_true", help="Display version information."
     )
+    general_opts.add_argument(
+        "-w", "--web", action="store_true", help="Launch web interface for batch downloading."
+    )
 
 
 def _add_search_arguments(parser: argparse.ArgumentParser) -> None:
